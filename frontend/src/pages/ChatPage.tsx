@@ -111,12 +111,12 @@ export default function ChatPage() {
         }
     };
 
-    const sendMessage = async () => {
-        if (!inputMessage.trim() || sending) return;
+    const sendMessage = async (overrideContent?: string) => {
+        const messageContent = overrideContent || inputMessage.trim();
+        if (!messageContent || sending) return;
 
         setSending(true);
-        const messageContent = inputMessage.trim();
-        setInputMessage(''); // Clear input immediately
+        if (!overrideContent) setInputMessage(''); // Clear input immediately if manual
 
         try {
             const res = await fetch('/api/v1/chat/send', {
@@ -140,12 +140,12 @@ export default function ChatPage() {
                 throw new Error("Server Error");
             } else {
                 alert('Failed to send message');
-                setInputMessage(messageContent); // Restore message on error
+                if (!overrideContent) setInputMessage(messageContent); // Restore message on error
             }
         } catch (e) {
             handleBackendError(e);
             alert('Error sending message - Service may be down');
-            setInputMessage(messageContent); // Restore message
+            if (!overrideContent) setInputMessage(messageContent); // Restore message
         } finally {
             setSending(false);
         }
@@ -154,6 +154,25 @@ export default function ChatPage() {
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+
+    // Listen for A2UI events from the renderer
+    useEffect(() => {
+        const handleFormSubmit = (e: any) => {
+            const data = e.detail.data;
+            sendMessage(JSON.stringify(data));
+        };
+        const handleAction = (e: any) => {
+            const action = e.detail.action;
+            sendMessage(action);
+        };
+
+        window.addEventListener('a2ui-form-submit', handleFormSubmit as any);
+        window.addEventListener('a2ui-action', handleAction as any);
+        return () => {
+            window.removeEventListener('a2ui-form-submit', handleFormSubmit as any);
+            window.removeEventListener('a2ui-action', handleAction as any);
+        };
+    }, [selectedClaimId, sending]); // Re-bind if claim context changes
 
     const selectedClaim = claims.find(c => c.id === selectedClaimId);
 
@@ -444,7 +463,7 @@ export default function ChatPage() {
                                 }}
                             />
                             <button
-                                onClick={sendMessage}
+                                onClick={() => sendMessage()}
                                 disabled={!inputMessage.trim() || sending}
                                 style={{
                                     position: 'absolute',

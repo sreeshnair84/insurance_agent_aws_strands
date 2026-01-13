@@ -85,9 +85,16 @@ class ClaimService:
                     
                     await self.db.commit()
                     await self.db.refresh(claim)
-                    
-                    # Return the updated claim
                     return claim
+
+        # Safety Fallback: If agent finished without interrupt but amount is high risk
+        if claim.claim_amount > 250000:
+            claim.status = ClaimStatus.PENDING_APPROVAL
+            claim.claim_metadata = claim.claim_metadata or {}
+            claim.claim_metadata["interrupt_reason"] = "Safety Fallback: High value claim (> $250k) requires human review."
+            await self.db.commit()
+            await self.db.refresh(claim)
+            return claim
         
         # Agent completed without interrupt (low risk claim)
         claim.status = ClaimStatus.APPROVED  # Auto-approve low risk

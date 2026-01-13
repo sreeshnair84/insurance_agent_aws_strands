@@ -12,6 +12,8 @@ from strands.agent import AgentResult
 from app.core.config import settings
 from app.models.claim import Claim, ClaimStatus, ClaimType
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import text, delete, update
 import json
 import datetime
 
@@ -36,7 +38,9 @@ async def validate_claim(claim_data: dict) -> List[str]:
         "description"
     ]
     for field in required_fields:
-        if not claim_data.get(field):
+        val = claim_data.get(field)
+        # Check for None or empty string. 0.0 is allowed as a value (though unlikely for amount).
+        if val is None or (isinstance(val, str) and not val.strip()):
             missing.append(field)
     return missing
 
@@ -47,16 +51,17 @@ async def assess_risk(claim_data: dict) -> str:
     Calculates risk level (LOW | MEDIUM | HIGH) based on heuristics.
     
     Risk factors:
-    - Amount > $500,000 or fraud score > 0.7 → HIGH
-    - Amount > $50,000 or fraud score > 0.4 → MEDIUM
+    - Amount > $250,000 or fraud score > 0.7 → HIGH
+    - Amount > $10,000 or fraud score > 0.4 → MEDIUM
     - Otherwise → LOW
     """
     amount = float(claim_data.get("claim_amount", 0))
     fraud_score = float(claim_data.get("fraud_risk_score", 0))
-    
-    if amount > 500000 or fraud_score > 0.7:
+    if amount > 250000:
         return "HIGH"
-    if amount > 50000 or fraud_score > 0.4:
+    if amount > 100000 or fraud_score > 0.7:
+        return "HIGH"
+    if amount > 10000 or fraud_score > 0.4:
         return "MEDIUM"
     return "LOW"
 
@@ -146,55 +151,7 @@ async def get_claim_details(tool_context: ToolContext, claim_id: int) -> str:
 # APPROVAL HOOK
 # ============================================================================
 
-class ClaimApprovalHook(HookProvider):
-    """
-    Hook to intercept high-risk claim approvals and request human intervention.
-    Implements human-in-the-loop pattern using Strands interrupts.
-    """
-    
-    def __init__(self, app_name: str = "insurance-agent"):
-        self.app_name = app_name
-    
-    def register_hooks(self, registry: HookRegistry, **kwargs: Any) -> None:
-        """Register the approval hook for BeforeToolCallEvent."""
-        registry.add_callback(BeforeToolCallEvent, self.intercept_approval)
-    
-    def intercept_approval(self, event: BeforeToolCallEvent) -> None:
-        """
-        Intercept tool calls that require approval.
-        Only intercepts 'request_approval' tool calls.
-        """
-        # Only intercept approval requests
-        if event.tool_use["name"] != "request_approval":
-            return
-        
-        # Check if approver has "trust" status in agent state
-        # This allows approvers to skip future interrupts if they choose
-        if event.agent.state.get(f"{self.app_name}-trust") == "trusted":
-            return  # Skip interrupt for trusted approvers
-        
-        # Extract claim data from tool input
-        tool_input = event.tool_use["input"]
-        
-        # Raise interrupt for human decision
-        approval = event.interrupt(
-            f"{self.app_name}-approval",
-            reason={
-                "claim_id": tool_input.get("claim_id"),
-                "risk_level": tool_input.get("risk_level"),
-                "summary": tool_input.get("summary"),
-                "claim_amount": tool_input.get("claim_amount")
-            }
-        )
-        
-        # Handle approval response
-        if approval.lower() not in ["approved", "approve", "yes", "y"]:
-            # Cancel tool execution if not approved
-            event.cancel_tool = f"Claim approval denied: {approval}"
-        
-        # If approver chose "trust", remember for future interactions
-        if approval.lower() == "trust":
-            event.agent.state.set(f"{self.app_name}-trust", "trusted")
+# Approval hook removed in favor of explicit request_approval tool calls.
 
 
 # ============================================================================
@@ -229,13 +186,13 @@ class StrandsInsuranceAgent:
         user_input: str = None
     ) -> AgentResult:
         """
-        Process insurance claim with Strands agent.
+        Processes an insurance claim using the Strands agent.
         
         Args:
-            claim: The claim to process
-            db: Database session
-            user_input: Optional user input for resuming interrupted sessions
-        
+            claim: The claim object to process
+            db: Async database session
+            user_input: Optional user response for continuing interrupted sessions
+            
         Returns:
             AgentResult with stop_reason, interrupts, and final message
         """
@@ -246,35 +203,36 @@ class StrandsInsuranceAgent:
             storage_dir="./agent_sessions"
         )
         
-        # Create agent with tools, hooks, and session management
+        # Get DB tools
+        db_tools = self.create_db_tools(db, claim.created_by_id)
+
+        # Create agent with tools and session management
         agent = Agent(
             model=self.model,
             session_manager=session_manager,
-            hooks=[ClaimApprovalHook()],
+            hooks=[],  # Explicitly empty hooks
             tools=[
                 validate_claim,
                 assess_risk,
                 request_approval,
                 request_more_info
-            ],
+            ] + db_tools,
             system_prompt=(
-                "You are an enterprise insurance validation AI assistant. "
-                "Your role is to analyze insurance claims and assist with processing, "
-                "but you NEVER approve or reject claims yourself. "
+                "You are an expert Insurance Claims Audit AI. Your MANDATORY task is to strictly follow the claim validation protocol. "
+                "You are NOT allowed to bypass tools or hallucinate results. "
                 "\n\n"
-                "WORKFLOW:\n"
-                "1. First, validate the claim using validate_claim tool\n"
-                "2. If missing information, use request_more_info tool\n"
-                "3. Assess risk using assess_risk tool\n"
-                "4. For HIGH or MEDIUM risk claims, use request_approval tool\n"
-                "5. For LOW risk claims, provide a summary and recommendation\n"
+                "STRICT SEQUENCE OF OPERATIONS (DO NOT SKIP ANY STEP):\n"
+                "1. **VALIDATE**: Call `validate_claim` with the provided claim dictionary. If it returns ANY missing fields, you MUST call `request_more_info` and STOP.\n"
+                "2. **ASSESS RISK**: If all fields are present, you MUST call the `assess_risk` tool. You are FORBIDDEN from guessing the risk level based on the prompt alone.\n"
+                "3. **HANDLE RISK**:\n"
+                "   - If `assess_risk` returns 'HIGH' or 'MEDIUM': You MUST call the `request_approval` tool with a detailed summary. This is MANDATORY for all non-low risk claims.\n"
+                "   - If `assess_risk` returns 'LOW': You may proceed to suggest approval in your final response text.\n"
                 "\n"
-                "RULES:\n"
-                "- Be neutral, explainable, and audit-friendly\n"
-                "- Always explain your risk assessment reasoning\n"
-                "- Highlight key risk factors clearly\n"
-                "- Never make final approval/rejection decisions\n"
-                "- Output clear, professional summaries for human approvers"
+                "CORE RESTRICTIONS:\n"
+                "- NEVER approve or reject a claim yourself. Only use tools to signal status changes.\n"
+                "- NEVER hallucinate that data is missing if you haven't called `validate_claim`.\n"
+                "- ALWAYS think step-by-step before calling a tool (Chain of Thought), but DO NOT share this thinking with the final user. Keep it in your internal tool call planning.\n"
+                "- Your final response must be concise and based SOLELY on the outputs of the tools you called."
             )
         )
         
@@ -335,6 +293,9 @@ class StrandsInsuranceAgent:
             storage_dir="./agent_sessions"
         )
         
+        # Get DB tools
+        db_tools = self.create_db_tools(db, claim.created_by_id)
+
         # Create agent (will restore session state)
         agent = Agent(
             model=self.model,
@@ -345,10 +306,12 @@ class StrandsInsuranceAgent:
                 assess_risk,
                 request_approval,
                 request_more_info
-            ],
+            ] + db_tools,
             system_prompt=(
                 "You are an enterprise insurance validation AI assistant. "
-                "Continue processing the claim based on the approver's decision."
+                "Continue processing the claim based on the approver's decision. "
+                "You also have access to general tools like `list_user_claims_tool` if needed.\n"
+                "- **CRITICAL**: When a tool returns a JSON object containing 'a2ui_intent', you MUST include that EXACT JSON in your final response, wrapped in a markdown code block (```json ... ```)."
             )
         )
         
@@ -362,68 +325,42 @@ class StrandsInsuranceAgent:
         
         return result
 
-    async def process_general_chat(
-        self,
-        user_id: int,
-        user_input: str,
-        db: AsyncSession
-    ) -> AgentResult:
+
+    def create_db_tools(self, db: AsyncSession, user_id: int):
         """
-        Process general user chat for listing/creating claims.
+        Creates tools that require DB access and User context.
         """
-        # --- Dynamic Tools with DB Access ---
-        
-        # --- Dynamic Tools with DB Access ---
         
         @tool
         async def list_user_claims_tool(view_type: str = "table") -> str:
             """
             Lists recent claims for the current user.
-            Args:
-                view_type: "table" (default) or "cards". Use "cards" if user asks for "cards" or "visual" view.
             """
             try:
-                # Debug logging
-                with open("tool_debug.log", "a") as f:
-                    f.write(f"Executing list_user_claims_tool for user_id={user_id}\n")
-
                 result = await db.execute(
                     select(Claim).where(Claim.created_by_id == user_id).order_by(Claim.created_at.desc()).limit(10)
                 )
                 claims = result.scalars().all()
                 
-                with open("tool_debug.log", "a") as f:
-                    f.write(f"Found {len(claims)} claims\n")
-                
                 if not claims:
                     return "No claims found."
 
-                intent = "list_claims_table"
-                if view_type == "cards":
-                    intent = "list_claims_cards"
-                
-                # Return JSON structure with intent
-                data = [
-                    {
-                        "ID": c.id,
-                        "Policy": c.policy_number,
-                        "Type": c.claim_type,
-                        "Status": c.status,
-                        "Amount": f"${c.claim_amount:,.2f}",
-                        "Description": c.description # Needed for cards
-                    } for c in claims
-                ]
-                
+                # Return raw data structure
                 return json.dumps({
-                    "a2ui_intent": intent,
-                    "data": data,
-                    "summary": f"Found {len(claims)} recent claims."
+                    "type": "claims_list",
+                    "view_preference": view_type,
+                    "claims": [
+                        {
+                            "id": c.id,
+                            "policy": c.policy_number,
+                            "claim_type": c.claim_type,
+                            "status": c.status,
+                            "amount": c.claim_amount,
+                            "description": c.description
+                        } for c in claims
+                    ]
                 })
             except Exception as e:
-                import traceback
-                error_msg = f"Error in list_user_claims_tool: {str(e)}\n{traceback.format_exc()}"
-                with open("tool_error.log", "a") as f:
-                    f.write(error_msg + "\n")
                 return f"Error listing claims: {str(e)}"
 
         @tool
@@ -434,76 +371,90 @@ class StrandsInsuranceAgent:
             incident_date: str = None
         ) -> str:
             """Creates a new insurance claim draft."""
+            # Normalize enum value to uppercase
+            norm_type = claim_type.upper() if claim_type else "HEALTH"
+            
             new_claim = Claim(
                 policy_number=policy_number,
-                claim_type=claim_type, # Expects Enum string
+                claim_type=norm_type,
                 description=description,
                 status=ClaimStatus.DRAFT,
                 created_by_id=user_id,
-                claim_amount=0.0, # Default
-                incident_date=datetime.datetime.now() # Default to now if not provided or parse str
+                claim_amount=0.0,
+                incident_date=datetime.datetime.now()
             )
             db.add(new_claim)
             await db.commit()
             await db.refresh(new_claim)
-            return f"Claim created successfully. Claim ID: {new_claim.id}. You can now view it."
+            return json.dumps({
+                "type": "claim_created",
+                "claim_id": new_claim.id,
+                "status": "DRAFT"
+            })
 
         @tool
-        async def get_claim_details_tool(claim_id: int) -> str:
-            """Gets details of a specific claim."""
-            result = await db.execute(select(Claim).where(Claim.id == claim_id))
+        async def get_claim_details_tool(claim_id: int = None, policy_number: str = None) -> str:
+            """Gets details of a specific claim by ID or Policy Number."""
+            if claim_id:
+                query = select(Claim).where(Claim.id == claim_id)
+            elif policy_number:
+                query = select(Claim).where(Claim.policy_number == policy_number, Claim.created_by_id == user_id).order_by(Claim.created_at.desc())
+            else:
+                return "Please provide a claim ID or Policy Number."
+
+            result = await db.execute(query)
             claim = result.scalars().first()
             if not claim:
                 return "Claim not found."
             if claim.created_by_id != user_id:
-                return "Unauthorized access to this claim."
-            return (f"Claim ID: {claim.id}\nPolicy: {claim.policy_number}\nType: {claim.claim_type}\n"
-                    f"Status: {claim.status}\nDescription: {claim.description}\nAmount: ${claim.claim_amount}")
+                return "Unauthorized access."
+            
+            return json.dumps({
+                "type": "claim_detail",
+                "id": claim.id,
+                "policy": claim.policy_number,
+                "claim_type": claim.claim_type,
+                "status": claim.status,
+                "amount": claim.claim_amount,
+                "description": claim.description
+            })
         
         @tool
-        async def present_claim_form_tool() -> str:
+        async def get_claim_form_schema_tool() -> str:
             """
-            Present a form to create a new claim.
+            Returns the schema for the claim creation form.
             """
             return json.dumps({
-                "a2ui_intent": "create_claim_form",
+                "type": "form_schema",
+                "purpose": "create_claim",
                 "fields": [
-                    {"name": "policy_number", "label": "Policy Number", "type": "text", "required": True},
-                    {"name": "claim_type", "label": "Claim Type", "type": "select", "options": ["HEALTH", "AUTO", "PROPERTY"], "required": True},
-                    {"name": "description", "label": "Description", "type": "textarea", "required": True},
-                    {"name": "incident_date", "label": "Incident Date", "type": "date", "required": False}
+                    {"name": "policy_number", "label": "Policy Number", "required": True},
+                    {"name": "claim_type", "options": ["HEALTH", "AUTO", "PROPERTY"], "required": True},
+                    {"name": "description", "required": True},
+                    {"name": "incident_date", "type": "date"}
                 ]
             })
 
         @tool
-        async def present_update_claim_form_tool(claim_id: int) -> str:
-            """
-            Present a form to update an existing claim.
-            Use this when user wants to update a claim but hasn't provided all details.
-            """
+        async def get_update_form_schema_tool(claim_id: int) -> str:
+            """Returns schema for updating an existing claim."""
             claim = await db.get(Claim, claim_id)
             if not claim or claim.created_by_id != user_id:
                 return "Claim not found or unauthorized."
-                
-            if claim.status not in [ClaimStatus.DRAFT, ClaimStatus.NEEDS_MORE_INFO]:
-                 return f"Cannot update claim in {claim.status} status."
-
+            
             return json.dumps({
-                "a2ui_intent": "update_claim_form",
+                "type": "form_schema",
+                "purpose": "update_claim",
                 "claim_id": claim.id,
-                "fields": [
-                    {"name": "claim_amount", "label": "Claim Amount ($)", "type": "number", "required": False, "defaultValue": claim.claim_amount},
-                    {"name": "description", "label": "Description", "type": "textarea", "required": False, "defaultValue": claim.description},
-                    # Add more fields as needed
-                ]
+                "current_values": {
+                    "claim_amount": claim.claim_amount,
+                    "description": claim.description
+                }
             })
-
+            
         @tool
         async def update_claim_tool(claim_id: int, claim_amount: float = None, description: str = None) -> str:
-            """
-            Update an existing claim's details directly. 
-            Use this when user provides value directly (e.g. "Update amount to 500").
-            """
+            """Update an existing claim's details directly."""
             from app.services.claim_service import ClaimService
             service = ClaimService(db)
             update_data = {}
@@ -511,26 +462,62 @@ class StrandsInsuranceAgent:
                 update_data["claim_amount"] = claim_amount
             if description:
                 update_data["description"] = description
-                
-            if not update_data:
-                return "No updates provided."
-
+            
             try:
-                # We need to verify ownership roughly here or let Service handle it. 
-                # Service treats all updates as valid if ID matches, so effectively we should check ownership 
-                # but for now we trust the ID passed. In real app, Service methods should take user_id.
-                # Actually ClaimService doesn't take user_id for update_claim, which is a gap.
-                # We'll do a quick check here.
                 claim = await db.get(Claim, claim_id)
                 if not claim or claim.created_by_id != user_id:
                      return "Claim not found or unauthorized."
 
                 updated = await service.update_claim(claim_id, update_data)
-                return f"Claim {claim_id} updated successfully. New Amount: ${updated.claim_amount}. Status: {updated.status}."
+                return json.dumps({
+                    "type": "claim_updated",
+                    "id": updated.id,
+                    "new_amount": updated.claim_amount,
+                    "status": updated.status
+                })
             except ValueError as e:
                 return f"Error updating claim: {str(e)}"
 
-        # --- execution ---
+        @tool
+        async def submit_claim_tool(claim_id: int) -> str:
+            """
+            Submits a claim for final review and processing.
+            Moves claim from DRAFT to UNDER_AGENT_REVIEW and triggers risk assessment.
+            """
+            from app.services.claim_service import ClaimService
+            service = ClaimService(db)
+            try:
+                updated = await service.submit_claim(claim_id)
+                return json.dumps({
+                    "type": "claim_submitted",
+                    "id": updated.id,
+                    "status": updated.status,
+                    "summary": f"Claim #{updated.id} has been submitted for review."
+                })
+            except Exception as e:
+                return f"Error submitting claim: {str(e)}"
+                
+        return [
+            list_user_claims_tool,
+            create_claim_draft_tool,
+            get_claim_details_tool,
+            get_claim_form_schema_tool,
+            get_update_form_schema_tool,
+            update_claim_tool,
+            submit_claim_tool
+        ]
+
+    async def process_general_chat(
+        self,
+        user_id: int,
+        user_input: str,
+        db: AsyncSession
+    ) -> AgentResult:
+        """
+        Process general user chat.
+        """
+        # Get DB tools
+        db_tools = self.create_db_tools(db, user_id)
         
         session_manager = FileSessionManager(
             session_id=f"user-chat-{user_id}",
@@ -540,28 +527,20 @@ class StrandsInsuranceAgent:
         agent = Agent(
             model=self.model,
             session_manager=session_manager,
-            tools=[
-                list_user_claims_tool, 
-                create_claim_draft_tool, 
-                get_claim_details_tool, 
-                present_claim_form_tool,
-                present_update_claim_form_tool,
-                update_claim_tool
-            ],
+            tools=db_tools,
             system_prompt=(
-                "You are a helpful insurance assistant. "
-                "You can help users list claims, create new claims, or update existing ones. "
-                "\n\nUI GUIDELINES:\n"
-                "- **Listing Claims**: Call `list_user_claims_tool`. If user asks for 'cards' or 'grid' view, pass `view_type='cards'`, otherwise default to 'table'.\n"
-                "- **Creating Claims**: If user asks to create a claim, call `present_claim_form_tool` to show the form.\n"
-                "  - EXCEPTION: If they provide ALL details (Policy, Type, Desc) in one go, call `create_claim_draft_tool`.\n"
-                "- **Updating Claims**: \n"
-                "  - If user says 'Update claim 123' without details, call `present_update_claim_form_tool(123)`.\n"
-                "  - If user says 'Update claim 123 amount to 500', call `update_claim_tool(123, claim_amount=500)`.\n"
-                "  - Verify claim ID exists before updating.\n"
-                "- Always provide a brief text summary along with any UI component."
+                "You are a professional insurance assistant. "
+                "You can help users list claims, create new claims, or update existing ones.\n\n"
+                "TOOLS:\n"
+                "- **Listing Claims**: `list_user_claims_tool`.\n"
+                "- **Creating Claims**: `get_claim_form_schema_tool`.\n"
+                "- **Updating Claims**: `update_claim_tool` (direct) or `get_update_form_schema_tool` (form).\n"
+                "- **Submitting Claims**: `submit_claim_tool` (moves from DRAFT to REVIEW).\n"
+                "- **Claim Details**: Call `get_claim_details_tool`. You MUST use this tool if a user provides a Claim ID OR a Policy Number.\n"
+                "\n"
+                "CRITICAL: If a user asks to CHANGE, UPDATE, or SUBMIT a claim, use the respective tool immediately."
             )
         )
         
-        result = agent(user_input)
-        return result
+        return agent(user_input)
+
