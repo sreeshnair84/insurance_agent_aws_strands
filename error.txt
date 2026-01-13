@@ -1,0 +1,17 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "C:\Users\Srees\project\insurant_agent_strands\backend\app\models\__init__.py", line 3, in <module>
+    from app.models.audit import Message, Decision, AgentAudit, SenderType, DecisionType
+  File "C:\Users\Srees\project\insurant_agent_strands\backend\app\models\audit.py", line 63, in <module>
+    class AgentAudit(Base):
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\decl_api.py", line 196, in __init__
+    _as_declarative(reg, cls, dict_)
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\decl_base.py", line 244, in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\decl_base.py", line 325, in setup_mapping
+    return _ClassScanMapperConfig(
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\decl_base.py", line 572, in __init__
+    self._extract_mappable_attributes()
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python310\lib\site-packages\sqlalchemy\orm\decl_base.py", line 1533, in _extract_mappable_attributes
+    raise exc.InvalidRequestError(
+sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.

@@ -1,0 +1,34 @@
+# General
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+venv/
+backend/agent_sessions/
+backend/sql_app.db
+# Ignore verification logs and temp scripts
+backend/verification_log*.txt
+backend/debug_*.py
+backend/fix_*.py
+backend/verify_*.py
+
+# Node/Frontend
+node_modules/
+dist/
+build/
+frontend/dist/
+frontend/node_modules/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
