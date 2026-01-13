@@ -73,7 +73,10 @@ class ChatService:
             # Handle Rate Limit and other Agent errors gracefully
             import traceback
             error_str = str(e)
+            error_str = str(e)
             print(f"Agent Processing Error: {error_str}\n{traceback.format_exc()}")
+            with open("debug_log.txt", "a") as f:
+                f.write(f"Agent Processing Error: {error_str}\n{traceback.format_exc()}\n")
             
             if "All generated alerts" in error_str: # Strands specific
                  agent_response_text = "I encountered an internal processing error. Please try again."
@@ -183,8 +186,12 @@ class ChatService:
                     intent = data.get("a2ui_intent")
                     if intent == "list_claims_table":
                         components.append(self._create_table_card(data))
+                    elif intent == "list_claims_cards":
+                        components.append(self._create_card_list(data))
                     elif intent == "create_claim_form":
-                        components.append(self._create_form_card(data))
+                        components.append(self._create_form_card(data, "Create New Claim"))
+                    elif intent == "update_claim_form":
+                        components.append(self._create_form_card(data, f"Update Claim #{data.get('claim_id')}"))
                         
             # If regex didn't work (likely), let's try a scan for the specfic intents manually
             # if we didn't find anything yet.
@@ -210,12 +217,34 @@ class ChatService:
             "rows": data.get("data", [])
         }
 
-    def _create_form_card(self, data: Dict) -> Dict[str, Any]:
+    def _create_card_list(self, data: Dict) -> Dict[str, Any]:
+        """Creates a list of cards for claims."""
+        claims = data.get("data", [])
+        cards = []
+        for c in claims:
+            # Determine card type/color based on status
+            status = c.get("Status", "DRAFT")
+            cards.append({
+                "type": "status_card", # Or info_card
+                "status": status,
+                "title": f"Claim #{c.get('ID')} - {c.get('Type')}",
+                "description": c.get("Description") or f"Amount: {c.get('Amount')}",
+                "color": self._get_status_color(status),
+                "icon": self._get_status_icon(status)
+            })
+            
+        return {
+            "type": "card_list",
+            "title": data.get("summary", "Claims View"),
+            "cards": cards
+        }
+
+    def _create_form_card(self, data: Dict, title: str) -> Dict[str, Any]:
         """Creates a form card from data."""
         return {
             "type": "form_card",
-            "title": "Create New Claim",
-            "submitLabel": "Submit Claim",
+            "title": title,
+            "submitLabel": "Submit",
             "fullWidth": True, # A2UI hint
             "fields": data.get("fields", [])
         }

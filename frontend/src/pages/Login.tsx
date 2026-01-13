@@ -36,31 +36,69 @@ export default function Login() {
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f4f8' }}>
-            <form onSubmit={handleSubmit} className="glass" style={{ padding: '2rem', borderRadius: '1rem', width: '300px' }}>
-                <h2 style={{ marginBottom: '1.5rem', color: '#1e3a8a' }}>Sign In</h2>
-                {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Username</label>
+        <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            background: 'var(--bg-app)'
+        }}>
+            <form onSubmit={handleSubmit} className="glass" style={{
+                padding: '2.5rem',
+                borderRadius: '1rem',
+                width: '100%',
+                maxWidth: '400px',
+                background: 'white' // Fallback/Base
+            }}>
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                    <div style={{
+                        width: '48px', height: '48px',
+                        background: 'var(--primary)',
+                        borderRadius: '12px',
+                        margin: '0 auto 1rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'white', fontSize: '24px',
+                        boxShadow: '0 4px 6px rgba(37, 99, 235, 0.3)'
+                    }}>🛡️</div>
+                    <h2 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.5rem', fontWeight: 700 }}>Welcome Back</h2>
+                    <p style={{ margin: '0.5rem 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Sign in to access your claims</p>
+                </div>
+
+                {error && (
+                    <div style={{
+                        background: 'var(--status-error-bg)',
+                        color: 'var(--status-error-text)',
+                        padding: '0.75rem',
+                        borderRadius: '0.5rem',
+                        marginBottom: '1.5rem',
+                        fontSize: '0.9rem',
+                        display: 'flex', alignItems: 'center', gap: '0.5rem'
+                    }}>
+                        <span>⚠️</span> {error}
+                    </div>
+                )}
+
+                <div style={{ marginBottom: '1.25rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-main)' }}>Username</label>
                     <input
                         type="text"
                         value={username}
                         onChange={e => setUsername(e.target.value)}
                         className="input-field"
-                        placeholder="user, approver, or admin"
+                        placeholder="e.g. user"
                     />
                 </div>
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
+                <div style={{ marginBottom: '2rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-main)' }}>Password</label>
                     <input
                         type="password"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         className="input-field"
-                        placeholder="password"
+                        placeholder="••••••••"
                     />
                 </div>
-                <button type="submit" className="btn-primary" style={{ width: '100%' }}>Login</button>
+                <button type="submit" className="btn-primary" style={{ width: '100%' }}>Sign In</button>
             </form>
         </div>
     );

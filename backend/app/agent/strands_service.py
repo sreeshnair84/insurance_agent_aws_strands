@@ -12,9 +12,9 @@ from strands.agent import AgentResult
 from app.core.config import settings
 from app.models.claim import Claim, ClaimStatus, ClaimType
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 import json
 import datetime
+
 
 
 # ============================================================================
@@ -373,28 +373,58 @@ class StrandsInsuranceAgent:
         """
         # --- Dynamic Tools with DB Access ---
         
+        # --- Dynamic Tools with DB Access ---
+        
         @tool
-        async def list_user_claims_tool() -> str:
-            """Lists recent claims for the current user."""
-            result = await db.execute(
-                select(Claim).where(Claim.created_by_id == user_id).order_by(Claim.created_at.desc()).limit(10)
-            )
-            claims = result.scalars().all()
-            
-            # Return JSON structure for Table Card
-            return json.dumps({
-                "a2ui_intent": "list_claims_table",
-                "data": [
+        async def list_user_claims_tool(view_type: str = "table") -> str:
+            """
+            Lists recent claims for the current user.
+            Args:
+                view_type: "table" (default) or "cards". Use "cards" if user asks for "cards" or "visual" view.
+            """
+            try:
+                # Debug logging
+                with open("tool_debug.log", "a") as f:
+                    f.write(f"Executing list_user_claims_tool for user_id={user_id}\n")
+
+                result = await db.execute(
+                    select(Claim).where(Claim.created_by_id == user_id).order_by(Claim.created_at.desc()).limit(10)
+                )
+                claims = result.scalars().all()
+                
+                with open("tool_debug.log", "a") as f:
+                    f.write(f"Found {len(claims)} claims\n")
+                
+                if not claims:
+                    return "No claims found."
+
+                intent = "list_claims_table"
+                if view_type == "cards":
+                    intent = "list_claims_cards"
+                
+                # Return JSON structure with intent
+                data = [
                     {
                         "ID": c.id,
                         "Policy": c.policy_number,
                         "Type": c.claim_type,
                         "Status": c.status,
-                        "Amount": f"${c.claim_amount:,.2f}"
+                        "Amount": f"${c.claim_amount:,.2f}",
+                        "Description": c.description # Needed for cards
                     } for c in claims
-                ],
-                "summary": f"Found {len(claims)} recent claims."
-            })
+                ]
+                
+                return json.dumps({
+                    "a2ui_intent": intent,
+                    "data": data,
+                    "summary": f"Found {len(claims)} recent claims."
+                })
+            except Exception as e:
+                import traceback
+                error_msg = f"Error in list_user_claims_tool: {str(e)}\n{traceback.format_exc()}"
+                with open("tool_error.log", "a") as f:
+                    f.write(error_msg + "\n")
+                return f"Error listing claims: {str(e)}"
 
         @tool
         async def create_claim_draft_tool(
@@ -433,8 +463,7 @@ class StrandsInsuranceAgent:
         @tool
         async def present_claim_form_tool() -> str:
             """
-            Present a form to the user to create a new claim.
-            Use this when the user wants to create a claim but hasn't provided all details yet.
+            Present a form to create a new claim.
             """
             return json.dumps({
                 "a2ui_intent": "create_claim_form",
@@ -446,6 +475,61 @@ class StrandsInsuranceAgent:
                 ]
             })
 
+        @tool
+        async def present_update_claim_form_tool(claim_id: int) -> str:
+            """
+            Present a form to update an existing claim.
+            Use this when user wants to update a claim but hasn't provided all details.
+            """
+            claim = await db.get(Claim, claim_id)
+            if not claim or claim.created_by_id != user_id:
+                return "Claim not found or unauthorized."
+                
+            if claim.status not in [ClaimStatus.DRAFT, ClaimStatus.NEEDS_MORE_INFO]:
+                 return f"Cannot update claim in {claim.status} status."
+
+            return json.dumps({
+                "a2ui_intent": "update_claim_form",
+                "claim_id": claim.id,
+                "fields": [
+                    {"name": "claim_amount", "label": "Claim Amount ($)", "type": "number", "required": False, "defaultValue": claim.claim_amount},
+                    {"name": "description", "label": "Description", "type": "textarea", "required": False, "defaultValue": claim.description},
+                    # Add more fields as needed
+                ]
+            })
+
+        @tool
+        async def update_claim_tool(claim_id: int, claim_amount: float = None, description: str = None) -> str:
+            """
+            Update an existing claim's details directly. 
+            Use this when user provides value directly (e.g. "Update amount to 500").
+            """
+            from app.services.claim_service import ClaimService
+            service = ClaimService(db)
+            update_data = {}
+            if claim_amount is not None:
+                update_data["claim_amount"] = claim_amount
+            if description:
+                update_data["description"] = description
+                
+            if not update_data:
+                return "No updates provided."
+
+            try:
+                # We need to verify ownership roughly here or let Service handle it. 
+                # Service treats all updates as valid if ID matches, so effectively we should check ownership 
+                # but for now we trust the ID passed. In real app, Service methods should take user_id.
+                # Actually ClaimService doesn't take user_id for update_claim, which is a gap.
+                # We'll do a quick check here.
+                claim = await db.get(Claim, claim_id)
+                if not claim or claim.created_by_id != user_id:
+                     return "Claim not found or unauthorized."
+
+                updated = await service.update_claim(claim_id, update_data)
+                return f"Claim {claim_id} updated successfully. New Amount: ${updated.claim_amount}. Status: {updated.status}."
+            except ValueError as e:
+                return f"Error updating claim: {str(e)}"
+
         # --- execution ---
         
         session_manager = FileSessionManager(
@@ -456,15 +540,26 @@ class StrandsInsuranceAgent:
         agent = Agent(
             model=self.model,
             session_manager=session_manager,
-            tools=[list_user_claims_tool, create_claim_draft_tool, get_claim_details_tool, present_claim_form_tool],
+            tools=[
+                list_user_claims_tool, 
+                create_claim_draft_tool, 
+                get_claim_details_tool, 
+                present_claim_form_tool,
+                present_update_claim_form_tool,
+                update_claim_tool
+            ],
             system_prompt=(
                 "You are a helpful insurance assistant. "
-                "You can help users list their claims, create new claims, or get details about specific claims. "
+                "You can help users list claims, create new claims, or update existing ones. "
                 "\n\nUI GUIDELINES:\n"
-                "- If the user asks to list claims, call `list_user_claims_tool`. \n"
-                "- If the user wants to create a new claim (and hasn't provided all info), call `present_claim_form_tool` to show them a form.\n"
-                "- If the user provides all claim details directly (Policy, Type, Description), you can call `create_claim_draft_tool` immediately.\n"
-                "- When a tool returns a JSON string with 'a2ui_intent', primarily pass that information through or summarize it briefly."
+                "- **Listing Claims**: Call `list_user_claims_tool`. If user asks for 'cards' or 'grid' view, pass `view_type='cards'`, otherwise default to 'table'.\n"
+                "- **Creating Claims**: If user asks to create a claim, call `present_claim_form_tool` to show the form.\n"
+                "  - EXCEPTION: If they provide ALL details (Policy, Type, Desc) in one go, call `create_claim_draft_tool`.\n"
+                "- **Updating Claims**: \n"
+                "  - If user says 'Update claim 123' without details, call `present_update_claim_form_tool(123)`.\n"
+                "  - If user says 'Update claim 123 amount to 500', call `update_claim_tool(123, claim_amount=500)`.\n"
+                "  - Verify claim ID exists before updating.\n"
+                "- Always provide a brief text summary along with any UI component."
             )
         )
         

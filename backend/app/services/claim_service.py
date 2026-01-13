@@ -24,6 +24,29 @@ class ClaimService:
         await self.db.refresh(claim)
         return claim
 
+    async def update_claim(self, claim_id: int, update_data: dict) -> Claim:
+        """
+        Update claim details.
+        Only allowed if status is DRAFT or NEEDS_MORE_INFO.
+        """
+        claim = await self.get_claim(claim_id)
+        if not claim:
+            raise ValueError("Claim not found")
+            
+        if claim.status not in [ClaimStatus.DRAFT, ClaimStatus.NEEDS_MORE_INFO]:
+            raise ValueError(f"Cannot update claim in status {claim.status}. Only DRAFT or NEEDS_MORE_INFO claims can be updated.")
+            
+        for key, value in update_data.items():
+            if hasattr(claim, key) and value is not None:
+                setattr(claim, key, value)
+                
+        # If it was NEEDS_MORE_INFO, maybe switch back to DRAFT or keep it?
+        # For now, let's keep status as is, unless explicitly changed.
+        
+        await self.db.commit()
+        await self.db.refresh(claim)
+        return claim
+
     async def submit_claim(self, claim_id: int) -> Claim:
         """
         Submit claim for agent processing.

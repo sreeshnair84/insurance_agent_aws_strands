@@ -71,135 +71,159 @@ export default function ClaimSubmit() {
     };
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                <h1>New Claim</h1>
+        <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+            <header style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '2rem',
+                background: 'var(--bg-panel)',
+                padding: '1rem 1.5rem',
+                borderRadius: '1rem',
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-sm)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ fontSize: '1.5rem' }}>📝</div>
+                    <h1 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>New Claim</h1>
+                </div>
+
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <button
                         onClick={() => navigate('/chat')}
                         style={{
                             padding: '0.5rem 1rem',
-                            background: '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer'
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            fontSize: '0.9rem'
                         }}
+                        className="btn-secondary"
                     >
-                        💬 Chat with Agent
+                        <span>💬</span> Chat with Agent
                     </button>
-                    <span>Welcome, {user?.username}</span>
-                    <button onClick={logout} className="btn-primary" style={{ padding: '0.5rem 1rem' }}>Logout</button>
+                    <div style={{ height: '24px', width: '1px', background: 'var(--border-color)' }}></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{
+                            width: '28px', height: '28px',
+                            borderRadius: '50%',
+                            background: 'var(--bg-input)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.8rem', color: 'var(--text-muted)'
+                        }}>👤</div>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>{user?.username}</span>
+                    </div>
+                    <button onClick={logout} className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>Logout</button>
                 </div>
             </header>
 
             {/* Success/Status Message */}
             {submitResult && (
-                <div className="glass" style={{
+                <div style={{
                     padding: '1.5rem',
                     borderRadius: '1rem',
                     marginBottom: '2rem',
-                    background: submitResult.status === 'completed' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                    borderLeft: `4px solid ${submitResult.status === 'completed' ? '#22c55e' : '#3b82f6'}`
+                    background: submitResult.status === 'completed' ? 'var(--status-success-bg)' : 'var(--status-warning-bg)',
+                    border: `1px solid ${submitResult.status === 'completed' ? 'transparent' : 'transparent'}`,
+                    color: submitResult.status === 'completed' ? 'var(--status-success-text)' : 'var(--status-warning-text)',
+                    boxShadow: 'var(--shadow-sm)'
                 }}>
-                    <h3 style={{ marginTop: 0, color: submitResult.status === 'completed' ? '#166534' : '#1e40af' }}>
-                        {submitResult.status === 'completed' ? '✓ Claim Approved!' : '⏳ Claim Submitted for Review'}
+                    <h3 style={{ marginTop: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {submitResult.status === 'completed' ? '✅ Claim Approved' : '⏳ Claim Submitted for Review'}
                     </h3>
 
                     {submitResult.status === 'awaiting_approval' && (
                         <div>
-                            <p style={{ margin: '0.5rem 0' }}>
-                                <strong>Status:</strong> Pending Approver Review
+                            <p style={{ margin: '0.5rem 0 1rem', opacity: 0.9 }}>
+                                Your claim has been submitted pending approver review.
                             </p>
-                            <p style={{ margin: '0.5rem 0' }}>
-                                <strong>Risk Level:</strong> <span style={{
-                                    padding: '0.25rem 0.5rem',
-                                    borderRadius: '0.5rem',
-                                    background: submitResult.risk_level === 'HIGH' ? '#fee2e2' : submitResult.risk_level === 'MEDIUM' ? '#fef3c7' : '#dcfce7',
-                                    color: submitResult.risk_level === 'HIGH' ? '#991b1b' : submitResult.risk_level === 'MEDIUM' ? '#92400e' : '#166534',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 'bold'
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.9rem' }}>
+                                <span style={{ fontWeight: 600 }}>Risk Level:</span>
+                                <span style={{
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '2rem',
+                                    background: 'rgba(255,255,255,0.8)',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.8rem'
                                 }}>{submitResult.risk_level}</span>
-                            </p>
+                            </div>
+
                             {submitResult.summary && (
                                 <div style={{
                                     marginTop: '1rem',
                                     padding: '1rem',
-                                    background: 'rgba(255,255,255,0.5)',
-                                    borderRadius: '0.5rem'
+                                    background: 'rgba(255,255,255,0.6)',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '0.9rem'
                                 }}>
-                                    <strong>AI Agent Analysis:</strong>
-                                    <p style={{ margin: '0.5rem 0 0 0' }}>{submitResult.summary}</p>
+                                    <strong style={{ display: 'block', marginBottom: '0.25rem' }}>AI Analysis</strong>
+                                    {submitResult.summary}
                                 </div>
                             )}
-                            <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
-                                An approver will review your claim shortly. You will be notified of the decision.
-                            </p>
                         </div>
                     )}
 
                     {submitResult.status === 'completed' && (
                         <div>
-                            <p style={{ margin: '0.5rem 0' }}>
-                                Your claim has been automatically approved by the AI agent as it meets all criteria for low-risk claims.
-                            </p>
-                            <p style={{ margin: '0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
-                                {submitResult.message}
+                            <p style={{ margin: '0.5rem 0', opacity: 0.9 }}>
+                                {submitResult.message || "Your claim meets all criteria for instant approval."}
                             </p>
                         </div>
                     )}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="glass" style={{ padding: '2rem', borderRadius: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <form onSubmit={handleSubmit} className="glass" style={{ padding: '2.5rem', borderRadius: '1rem', background: 'var(--bg-panel)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Policy Number</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>Policy Number</label>
                         <input type="text" className="input-field" required
                             value={formData.policy_number}
                             onChange={e => setFormData({ ...formData, policy_number: e.target.value })}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
+                            placeholder="POL-XXXXX"
                         />
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Type</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>Type</label>
                         <select className="input-field" required
                             value={formData.claim_type}
                             onChange={e => setFormData({ ...formData, claim_type: e.target.value })}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
                         >
-                            <option value="HEALTH">Health</option>
-                            <option value="AUTO">Auto</option>
-                            <option value="PROPERTY">Property</option>
+                            <option value="HEALTH">Health - Medical & Dental</option>
+                            <option value="AUTO">Auto - Collision & Liability</option>
+                            <option value="PROPERTY">Property - Home & Assets</option>
                         </select>
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Amount ($)</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>Amount ($)</label>
                         <input type="number" className="input-field" required
                             value={formData.claim_amount}
                             onChange={e => setFormData({ ...formData, claim_amount: e.target.value })}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
+                            placeholder="0.00"
                         />
                     </div>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Incident Date</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>Incident Date</label>
                         <input type="datetime-local" className="input-field" required
                             value={formData.incident_date}
                             onChange={e => setFormData({ ...formData, incident_date: e.target.value })}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
                         />
                     </div>
                     <div style={{ gridColumn: 'span 2' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Description</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)' }}>Description</label>
                         <textarea className="input-field" rows={4} required
                             value={formData.description}
                             onChange={e => setFormData({ ...formData, description: e.target.value })}
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '0.5rem', border: '1px solid #ccc' }}
+                            style={{ resize: 'vertical' }}
+                            placeholder="Describe what happened..."
                         />
                     </div>
                 </div>
-                <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                    <button disabled={loading} className="btn-primary" style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+                <div style={{ textAlign: 'right', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+                    <button disabled={loading} className="btn-primary" style={{
+                        padding: '0.75rem 2rem',
+                        fontSize: '0.95rem',
+                        opacity: loading ? 0.7 : 1,
+                        cursor: loading ? 'not-allowed' : 'pointer'
+                    }}>
                         {loading ? 'Processing...' : 'Submit Claim'}
                     </button>
                 </div>

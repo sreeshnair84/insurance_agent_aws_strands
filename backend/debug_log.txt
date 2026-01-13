@@ -1,0 +1,139 @@
+Agent Processing Error: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n'
+Traceback (most recent call last):
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\llms\vertex_ai\gemini\vertex_and_google_ai_studio_gemini.py", line 1782, in make_call
+    response = await client.post(api_base, headers=headers, data=data, stream=True, logging_obj=logging_obj)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\logging_utils.py", line 190, in async_wrapper
+    result = await func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\llms\custom_httpx\http_handler.py", line 403, in post
+    raise e
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\llms\custom_httpx\http_handler.py", line 359, in post
+    response.raise_for_status()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\httpx\_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:streamGenerateContent?key=AIzaSyDYyI7qy5muY0DjOevL6YVerQldYL1A1GI&alt=sse'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\streaming_handler.py", line 1809, in __anext__
+    await self.fetch_stream()
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\streaming_handler.py", line 1793, in fetch_stream
+    self.completion_stream = await self.make_call(
+                             ^^^^^^^^^^^^^^^^^^^^^
+        client=litellm.module_level_aclient
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\llms\vertex_ai\gemini\vertex_and_google_ai_studio_gemini.py", line 1786, in make_call
+    raise VertexAIError(
+    ...<3 lines>...
+    )
+litellm.llms.vertex_ai.common_utils.VertexAIError: b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\streaming_handler.py", line 1996, in __anext__
+    raise exception_type(
+          ~~~~~~~~~~~~~~^
+        model=self.model,
+        ^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        extra_kwargs={},
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 2328, in exception_type
+    raise e
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\exception_mapping_utils.py", line 1320, in exception_type
+    raise RateLimitError(
+    ...<11 lines>...
+    )
+litellm.exceptions.RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Srees\project\insurant_agent_strands\backend\app\services\chat_service.py", line 60, in send_message
+    result = await self.agent.process_general_chat(user_id, content, self.db)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Srees\project\insurant_agent_strands\backend\app\agent\strands_service.py", line 566, in process_general_chat
+    result = agent(user_input)
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\agent\agent.py", line 352, in __call__
+    return run_async(
+        lambda: self.invoke_async(
+            prompt, invocation_state=invocation_state, structured_output_model=structured_output_model, **kwargs
+        )
+    )
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\_async.py", line 33, in run_async
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\opentelemetry\instrumentation\threading\__init__.py", line 171, in wrapped_func
+    return original_func(*func_args, **func_kwargs)
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\_async.py", line 28, in execute
+    return asyncio.run(execute_async())
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 194, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\Srees\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 721, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\_async.py", line 25, in execute_async
+    return await async_func()
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\agent\agent.py", line 395, in invoke_async
+    async for event in events:
+        _ = event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\agent\agent.py", line 593, in stream_async
+    async for event in events:
+    ...<5 lines>...
+            yield as_dict
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\agent\agent.py", line 641, in _run_loop
+    async for event in events:
+    ...<13 lines>...
+        yield event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\agent\agent.py", line 693, in _execute_event_loop_cycle
+    async for event in events:
+        yield event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\event_loop\event_loop.py", line 155, in event_loop_cycle
+    async for model_event in model_events:
+        if not isinstance(model_event, ModelStopReason):
+            yield model_event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\event_loop\event_loop.py", line 417, in _handle_model_execution
+    raise e
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\event_loop\event_loop.py", line 341, in _handle_model_execution
+    async for event in stream_messages(
+    ...<7 lines>...
+        yield event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\event_loop\streaming.py", line 458, in stream_messages
+    async for event in process_stream(chunks, start_time):
+        yield event
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\event_loop\streaming.py", line 392, in process_stream
+    async for chunk in chunks:
+    ...<22 lines>...
+            handle_redact_content(chunk["redactContent"], state)
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\strands\models\litellm.py", line 287, in stream
+    async for event in response:
+    ...<33 lines>...
+            break
+  File "C:\Users\Srees\project\insurant_agent_strands\.venv\Lib\site-packages\litellm\litellm_core_utils\streaming_handler.py", line 2006, in __anext__
+    raise MidStreamFallbackError(
+    ...<6 lines>...
+    )
+litellm.exceptions.MidStreamFallbackError: litellm.ServiceUnavailableError: litellm.MidStreamFallbackError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n' Original exception: RateLimitError: litellm.RateLimitError: litellm.RateLimitError: vertex_ai_betaException - b'{\n  "error": {\n    "code": 429,\n    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash-lite\\nPlease retry in 37.55561376s.",\n    "status": "RESOURCE_EXHAUSTED",\n    "details": [\n      {\n        "@type": "type.googleapis.com/google.rpc.Help",\n        "links": [\n          {\n            "description": "Learn more about Gemini API quotas",\n            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.QuotaFailure",\n        "violations": [\n          {\n            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",\n            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",\n            "quotaDimensions": {\n              "location": "global",\n              "model": "gemini-2.5-flash-lite"\n            },\n            "quotaValue": "20"\n          }\n        ]\n      },\n      {\n        "@type": "type.googleapis.com/google.rpc.RetryInfo",\n        "retryDelay": "37s"\n      }\n    ]\n  }\n}\n'
+

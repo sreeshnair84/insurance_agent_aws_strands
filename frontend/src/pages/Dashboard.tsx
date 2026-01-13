@@ -132,9 +132,9 @@ export default function Dashboard() {
         if (!riskLevel) return null;
 
         const colors = {
-            HIGH: { bg: '#fee2e2', color: '#991b1b' },
-            MEDIUM: { bg: '#fef3c7', color: '#92400e' },
-            LOW: { bg: '#dcfce7', color: '#166534' }
+            HIGH: { bg: 'var(--status-error-bg)', color: 'var(--status-error-text)' },
+            MEDIUM: { bg: 'var(--status-warning-bg)', color: 'var(--status-warning-text)' },
+            LOW: { bg: 'var(--status-success-bg)', color: 'var(--status-success-text)' }
         };
 
         const style = colors[riskLevel as keyof typeof colors] || colors.MEDIUM;
@@ -159,7 +159,7 @@ export default function Dashboard() {
                 <h1>Approver Dashboard</h1>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <span>{user?.username} ({user?.role})</span>
-                    <button onClick={logout} className="btn-primary" style={{ padding: '0.5rem 1rem' }}>Logout</button>
+                    <button onClick={logout} className="btn-secondary" style={{ padding: '0.5rem 1rem' }}>Logout</button>
                 </div>
             </header>
 
@@ -173,8 +173,8 @@ export default function Dashboard() {
                                     {getRiskBadge(claim)}
                                     <span style={{
                                         padding: '0.25rem 0.5rem', borderRadius: '1rem', fontSize: '0.8rem',
-                                        background: claim.status === 'APPROVED' ? '#dcfce7' : claim.status === 'REJECTED' ? '#fee2e2' : claim.status === 'PENDING_APPROVAL' ? '#dbeafe' : '#fef3c7',
-                                        color: claim.status === 'APPROVED' ? '#166534' : claim.status === 'REJECTED' ? '#991b1b' : claim.status === 'PENDING_APPROVAL' ? '#1e40af' : '#92400e'
+                                        background: claim.status === 'APPROVED' ? 'var(--status-success-bg)' : claim.status === 'REJECTED' ? 'var(--status-error-bg)' : claim.status === 'PENDING_APPROVAL' ? 'var(--status-info-bg)' : 'var(--status-warning-bg)',
+                                        color: claim.status === 'APPROVED' ? 'var(--status-success-text)' : claim.status === 'REJECTED' ? 'var(--status-error-text)' : claim.status === 'PENDING_APPROVAL' ? 'var(--status-info-text)' : 'var(--status-warning-text)'
                                     }}>{claim.status.replace('_', ' ')}</span>
                                 </div>
                             </div>
@@ -182,16 +182,16 @@ export default function Dashboard() {
                             {/* Agent Summary */}
                             {claim.claim_metadata?.interrupt_reason?.summary && (
                                 <div style={{
-                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    background: 'var(--primary-light)',
                                     padding: '0.75rem',
                                     borderRadius: '0.5rem',
                                     marginBottom: '1rem',
-                                    borderLeft: '3px solid #3b82f6'
+                                    borderLeft: '3px solid var(--primary)'
                                 }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#3b82f6', marginBottom: '0.25rem' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '0.25rem' }}>
                                         AI AGENT SUMMARY
                                     </div>
-                                    <div style={{ fontSize: '0.9rem', color: '#1e3a8a' }}>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                                         {claim.claim_metadata.interrupt_reason.summary}
                                     </div>
                                 </div>
@@ -209,15 +209,18 @@ export default function Dashboard() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
                                     <button
                                         onClick={() => handleApprove(claim.id)}
-                                        style={{ background: '#22c55e', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                                        className="btn-primary"
+                                        style={{ background: 'var(--status-success-bg)', color: 'var(--status-success-text)', fontSize: '0.85rem' }}
                                     >✓ Approve</button>
                                     <button
                                         onClick={() => { setSelectedClaim(claim); setShowRejectModal(true); }}
-                                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                                        className="btn-danger"
+                                        style={{ fontSize: '0.85rem' }}
                                     >✗ Reject</button>
                                     <button
                                         onClick={() => { setSelectedClaim(claim); setShowRequestInfoModal(true); }}
-                                        style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                                        className="btn-secondary"
+                                        style={{ background: 'var(--status-warning-bg)', color: 'var(--status-warning-text)', fontSize: '0.85rem' }}
                                     >? More Info</button>
                                 </div>
                             )}
@@ -245,7 +248,7 @@ export default function Dashboard() {
                             <button onClick={() => { setShowRejectModal(false); setRejectReason(''); setSelectedClaim(null); }} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}>
                                 Cancel
                             </button>
-                            <button onClick={handleReject} style={{ padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', background: '#ef4444', color: 'white', cursor: 'pointer' }}>
+                            <button onClick={handleReject} className="btn-danger">
                                 Reject Claim
                             </button>
                         </div>

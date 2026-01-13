@@ -57,6 +57,18 @@ export default function ChatPage() {
         scrollToBottom();
     }, [messages]);
 
+    const handleBackendError = (e: any) => {
+        console.error("Backend Error:", e);
+        // Check for network error (fetch failure) or potential 500s if response was available (but here we only catch exceptions)
+        // 'TypeError: Failed to fetch' is typical for network down/CORS/Refused connection
+        if (e instanceof TypeError || e.message?.toLowerCase().includes('fetch')) {
+            console.log("Backend appears down, redirecting to login");
+            logout();
+            // Navigate handled by AuthContext usually clearing user, but explicit nav helps
+            navigate('/login?error=connection_lost');
+        }
+    };
+
     const fetchClaims = async () => {
         try {
             const res = await fetch('/api/v1/claims/', {
@@ -65,13 +77,11 @@ export default function ChatPage() {
             if (res.ok) {
                 const data = await res.json();
                 setClaims(data);
-                // Don't auto-select claim, default to General Chat if none selected
-                // if (!selectedClaimId && data.length > 0) {
-                //    setSelectedClaimId(data[0].id);
-                // }
+            } else if (res.status >= 500) {
+                throw new Error("Server Error");
             }
         } catch (e) {
-            console.error('Error fetching claims:', e);
+            handleBackendError(e);
         }
     };
 
@@ -87,15 +97,15 @@ export default function ChatPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                // Filter client-side just in case, though backend should handle it
-                // If selectedClaimId is null, we only want messages where claim_id is null
                 const filteredMessages = data.filter((m: Message) =>
                     selectedClaimId ? m.claim_id === selectedClaimId : m.claim_id === null
                 );
                 setMessages(filteredMessages);
+            } else if (res.status >= 500) {
+                throw new Error("Server Error");
             }
         } catch (e) {
-            console.error('Error fetching messages:', e);
+            handleBackendError(e);
         } finally {
             setLoading(false);
         }
@@ -126,14 +136,16 @@ export default function ChatPage() {
                 setMessages(prev => [...prev, data.user_message, data.agent_message]);
                 // Refresh claims if we are in general chat (might have created one)
                 if (!selectedClaimId) fetchClaims();
+            } else if (res.status >= 500) {
+                throw new Error("Server Error");
             } else {
                 alert('Failed to send message');
                 setInputMessage(messageContent); // Restore message on error
             }
         } catch (e) {
-            console.error('Error sending message:', e);
-            alert('Error sending message');
-            setInputMessage(messageContent); // Restore message on error
+            handleBackendError(e);
+            alert('Error sending message - Service may be down');
+            setInputMessage(messageContent); // Restore message
         } finally {
             setSending(false);
         }
@@ -143,65 +155,65 @@ export default function ChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    };
-
     const selectedClaim = claims.find(c => c.id === selectedClaimId);
 
     return (
-        <div style={{ display: 'flex', height: '100vh', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: 'var(--bg-app)' }}>
             {/* Header */}
-            <header style={{
+            <header className="glass" style={{
                 padding: '1rem 2rem',
-                borderBottom: '1px solid #e5e7eb',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)'
+                zIndex: 10,
+                background: 'white'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h1 style={{ margin: 0, fontSize: '1.5rem' }}>💬 Chat with Agent</h1>
+                    <div style={{
+                        background: 'var(--primary-light)',
+                        color: 'var(--primary)',
+                        padding: '0.5rem',
+                        borderRadius: '0.5rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                        <span style={{ fontSize: '1.2rem' }}>💎</span>
+                    </div>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--text-main)' }}>Strands Agent</h1>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>AI-Powered Claims Assistant</span>
+                    </div>
+
                     {selectedClaim ? (
                         <span style={{
+                            marginLeft: '1rem',
                             padding: '0.25rem 0.75rem',
-                            background: '#dbeafe',
-                            color: '#1e40af',
+                            background: 'var(--primary-light)',
+                            color: 'var(--primary)',
+                            border: '1px solid var(--primary-subtle)',
                             borderRadius: '1rem',
-                            fontSize: '0.875rem',
-                            fontWeight: '500'
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
                         }}>
                             {selectedClaim.policy_number}
                         </span>
                     ) : (
                         <span style={{
+                            marginLeft: '1rem',
                             padding: '0.25rem 0.75rem',
-                            background: '#f3f4f6',
-                            color: '#4b5563',
+                            background: 'var(--bg-input)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border-color)',
                             borderRadius: '1rem',
-                            fontSize: '0.875rem',
-                            fontWeight: '500'
+                            fontSize: '0.75rem',
                         }}>
-                            General Inquiry & Claim Creation
+                            General Chat
                         </span>
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    <button
-                        onClick={() => navigate('/submit')}
-                        style={{
-                            padding: '0.5rem 1rem',
-                            background: 'white',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        ← Back to Claims
+                    <button onClick={() => navigate('/submit')} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}>
+                        <span>←</span> Back
                     </button>
                     {selectedClaimId === null && (
                         <button
@@ -214,214 +226,243 @@ export default function ChatPage() {
                                         });
                                         if (res.ok) {
                                             setMessages([]);
-                                            fetchClaims(); // Refresh claims in case that list is stale? Actually unrelated.
+                                            fetchClaims();
                                         }
                                     } catch (e) {
                                         console.error("Failed to clear chat", e);
                                     }
                                 }
                             }}
-                            style={{
-                                padding: '0.5rem 1rem',
-                                background: '#fee2e2',
-                                color: '#991b1b',
-                                border: '1px solid #f87171',
-                                borderRadius: '0.5rem',
-                                cursor: 'pointer'
-                            }}
+                            className="btn-danger"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
                         >
                             Clear Chat
                         </button>
                     )}
-                    <span>{user?.username}</span>
-                    <button onClick={logout} className="btn-primary" style={{ padding: '0.5rem 1rem' }}>
-                        Logout
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}>
+                            {user?.username?.charAt(0).toUpperCase()}
+                        </div>
+                    </div>
                 </div>
             </header>
 
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                 {/* Sidebar - Claim Selector */}
-                <div style={{
+                <div className="glass" style={{
                     width: '300px',
-                    borderRight: '1px solid #e5e7eb',
-                    background: '#f9fafb',
+                    borderRight: '1px solid var(--border-color)',
+                    borderLeft: 'none', borderTop: 'none', borderBottom: 'none',
                     padding: '1rem',
-                    overflowY: 'auto'
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'white'
                 }}>
-                    <div
-                        onClick={() => setSelectedClaimId(null)}
-                        style={{
-                            padding: '0.75rem',
-                            borderRadius: '0.5rem',
-                            cursor: 'pointer',
-                            background: selectedClaimId === null ? '#3b82f6' : 'white',
-                            color: selectedClaimId === null ? 'white' : 'black',
-                            border: '1px solid',
-                            borderColor: selectedClaimId === null ? '#3b82f6' : '#e5e7eb',
-                            marginBottom: '1rem',
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        General Chat
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem' }}>
+                        <div style={{
+                            width: '36px', height: '36px',
+                            background: 'var(--primary)',
+                            borderRadius: '8px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: 'white', fontSize: '18px'
+                        }}>🛡️</div>
+                        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Insurant</h1>
                     </div>
 
-                    <h3 style={{ marginTop: 0, fontSize: '1rem', marginBottom: '1rem' }}>Your Claims</h3>
-                    {claims.length === 0 ? (
-                        <p style={{ color: '#666', fontSize: '0.875rem' }}>No claims found</p>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {claims.map(claim => (
-                                <div
-                                    key={claim.id}
-                                    onClick={() => setSelectedClaimId(claim.id)}
-                                    style={{
-                                        padding: '0.75rem',
-                                        borderRadius: '0.5rem',
-                                        cursor: 'pointer',
-                                        background: selectedClaimId === claim.id ? '#3b82f6' : 'white',
-                                        color: selectedClaimId === claim.id ? 'white' : 'black',
-                                        border: '1px solid',
-                                        borderColor: selectedClaimId === claim.id ? '#3b82f6' : '#e5e7eb',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <div style={{ fontWeight: '500', fontSize: '0.875rem' }}>
-                                        {claim.policy_number}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.25rem' }}>
-                                        {claim.claim_type} • {claim.status.replace('_', ' ')}
-                                    </div>
-                                </div>
-                            ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                        <button style={{
+                            padding: '0.75rem 1rem',
+                            background: 'var(--primary-light)',
+                            color: 'var(--primary)',
+                            border: '1px solid var(--primary-subtle)',
+                            borderRadius: '0.5rem',
+                            textAlign: 'left',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.75rem'
+                        }} onClick={() => setSelectedClaimId(null)}>
+                            <span>➕</span> New Claim Chat
+                        </button>
+
+                        <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Your Sessions
                         </div>
-                    )}
+
+                        {claims.map(claim => (
+                            <div
+                                key={claim.id}
+                                onClick={() => setSelectedClaimId(claim.id)}
+                                style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '0.5rem',
+                                    background: selectedClaimId === claim.id ? 'var(--bg-input)' : 'transparent',
+                                    cursor: 'pointer',
+                                    border: selectedClaimId === claim.id ? '1px solid var(--border-color)' : '1px solid transparent',
+                                    color: selectedClaimId === claim.id ? 'var(--text-main)' : 'var(--text-secondary)',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <div style={{ fontWeight: 500 }}>Claim #{claim.policy_number}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{claim.claim_type} • {claim.status}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div style={{
+                        padding: '1rem',
+                        background: 'var(--bg-app)',
+                        borderRadius: '0.75rem',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        marginTop: 'auto',
+                        border: '1px solid var(--border-color)'
+                    }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>👤</div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-main)' }}>{user?.username}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user?.role}</div>
+                        </div>
+                        <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                            🚪
+                        </button>
+                    </div>
                 </div>
 
-                {/* Chat Area */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    {/* Messages */}
+                {/* Main Chat Area */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
                     <div style={{
                         flex: 1,
                         overflowY: 'auto',
                         padding: '2rem',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem'
+                        gap: '1.5rem',
+                        scrollBehavior: 'smooth',
+                        background: 'var(--bg-app)'
                     }}>
                         {messages.length === 0 ? (
                             <div style={{
-                                textAlign: 'center',
-                                color: '#9ca3af',
-                                padding: '2rem'
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                height: '100%', opacity: 0.6
                             }}>
-                                <p>No messages yet. Start a conversation!</p>
-                                {selectedClaimId === null ? (
-                                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                                        Try asking: "I want to create a new claim" or "List my claims"
-                                    </p>
-                                ) : (
-                                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                                        Try asking: "What is the status of my claim?"
-                                    </p>
-                                )}
+                                <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>👋</div>
+                                <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>How can I help you today?</h3>
+                                <p style={{ color: 'var(--text-muted)' }}>Ask about claims, policies, or create a new request.</p>
                             </div>
                         ) : (
-                            messages.map(msg => (
-                                <div
-                                    key={msg.id}
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: msg.sender_type === 'USER' ? 'flex-end' : 'flex-start'
-                                    }}
-                                >
+                            messages.map((msg) => (
+                                <div key={msg.id} style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: msg.sender_type === 'USER' ? 'flex-end' : 'flex-start',
+                                    maxWidth: '100%'
+                                }}>
                                     <div style={{
-                                        maxWidth: '70%',
-                                        padding: '1rem',
-                                        borderRadius: '1rem',
-                                        background: msg.sender_type === 'USER'
-                                            ? '#3b82f6'
-                                            : 'rgba(255, 255, 255, 0.9)',
-                                        color: msg.sender_type === 'USER' ? 'white' : 'black',
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                        maxWidth: '800px',
+                                        width: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: msg.sender_type === 'USER' ? 'flex-end' : 'flex-start'
                                     }}>
-                                        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                                        {msg.a2ui && <A2UIRenderer components={msg.a2ui} />}
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            opacity: 0.7,
-                                            marginTop: '0.5rem'
-                                        }}>
-                                            {new Date(msg.created_at).toLocaleTimeString()}
+                                        {/* Text Bubble */}
+                                        {msg.content && (
+                                            <div style={{
+                                                padding: '1rem 1.25rem',
+                                                borderRadius: '1rem',
+                                                borderTopRightRadius: msg.sender_type === 'USER' ? '0.25rem' : '1rem',
+                                                borderTopLeftRadius: msg.sender_type === 'AGENT' ? '0.25rem' : '1rem',
+                                                background: msg.sender_type === 'USER' ? 'var(--primary)' : 'white',
+                                                color: msg.sender_type === 'USER' ? 'white' : 'var(--text-main)',
+                                                boxShadow: 'var(--shadow-sm)',
+                                                border: msg.sender_type === 'AGENT' ? '1px solid var(--border-color)' : 'none',
+                                                fontSize: '0.95rem',
+                                                lineHeight: '1.5'
+                                            }}>
+                                                {msg.content}
+                                            </div>
+                                        )}
+
+                                        {/* A2UI Components */}
+                                        {msg.a2ui && (
+                                            <div style={{ width: '100%', maxWidth: '600px', marginTop: '0.5rem' }}>
+                                                <A2UIRenderer components={msg.a2ui} />
+                                            </div>
+                                        )}
+
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem', padding: '0 0.5rem' }}>
+                                            {msg.sender_type === 'AGENT' ? 'Insurant AI' : 'You'} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
                                 </div>
                             ))
                         )}
                         {sending && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                                <div style={{
-                                    padding: '1rem',
-                                    borderRadius: '1rem',
-                                    background: 'rgba(255, 255, 255, 0.9)',
-                                    color: '#666',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                    display: 'flex',
-                                    gap: '0.25rem',
-                                    alignItems: 'center'
-                                }}>
-                                    <span style={{ animation: 'bounce 1s infinite', animationDelay: '0s' }}>●</span>
-                                    <span style={{ animation: 'bounce 1s infinite', animationDelay: '0.2s' }}>●</span>
-                                    <span style={{ animation: 'bounce 1s infinite', animationDelay: '0.4s' }}>●</span>
-                                </div>
+                            <div style={{
+                                alignSelf: 'flex-start',
+                                padding: '0.75rem 1.25rem',
+                                background: 'white',
+                                borderRadius: '1rem',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.9rem',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}>
+                                <span className="typing-dot"></span>
+                                <span className="typing-dot"></span>
+                                <span className="typing-dot"></span>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
 
                     {/* Input Area */}
-                    <div style={{
-                        borderTop: '1px solid #e5e7eb',
-                        padding: '1rem 2rem',
+                    <div className="glass" style={{
+                        padding: '1.5rem 2rem',
+                        borderTop: '1px solid var(--border-color)',
+                        display: 'flex', justifyContent: 'center',
                         background: 'white'
                     }}>
-                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                            <textarea
+                        <div style={{ width: '100%', maxWidth: '900px', position: 'relative' }}>
+                            <input
+                                type="text"
                                 value={inputMessage}
                                 onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
-                                placeholder={selectedClaimId === null
-                                    ? "Ask general questions or create a claim..."
-                                    : "Ask about this claim..."}
+                                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                placeholder="Type your message..."
                                 disabled={sending}
+                                className="input-field"
                                 style={{
-                                    flex: 1,
-                                    padding: '0.75rem',
-                                    borderRadius: '0.75rem',
-                                    border: '1px solid #d1d5db',
-                                    resize: 'none',
-                                    minHeight: '60px',
-                                    maxHeight: '150px',
-                                    fontFamily: 'inherit',
-                                    fontSize: '0.95rem'
+                                    width: '100%',
+                                    paddingRight: '3rem',
+                                    height: '50px',
+                                    borderRadius: '1.5rem',
+                                    paddingLeft: '1.5rem',
+                                    fontSize: '1rem',
+                                    boxShadow: 'var(--shadow-sm)'
                                 }}
-                                rows={2}
                             />
                             <button
                                 onClick={sendMessage}
                                 disabled={!inputMessage.trim() || sending}
                                 style={{
-                                    padding: '0.75rem 1.5rem',
-                                    background: sending || !inputMessage.trim() ? '#9ca3af' : '#3b82f6',
-                                    color: 'white',
+                                    position: 'absolute',
+                                    right: '0.5rem',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    width: '36px',
+                                    height: '36px',
+                                    borderRadius: '50%',
                                     border: 'none',
-                                    borderRadius: '0.75rem',
-                                    cursor: sending || !inputMessage.trim() ? 'not-allowed' : 'pointer',
-                                    fontWeight: '500',
-                                    height: '60px'
+                                    background: inputMessage.trim() ? 'var(--primary)' : 'var(--bg-input)',
+                                    color: inputMessage.trim() ? 'white' : 'var(--text-muted)',
+                                    cursor: inputMessage.trim() ? 'pointer' : 'default',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    transition: 'all 0.2s'
                                 }}
                             >
-                                {sending ? 'Sending...' : 'Send'}
+                                ➤
                             </button>
                         </div>
                     </div>
