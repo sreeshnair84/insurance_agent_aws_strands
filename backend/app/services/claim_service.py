@@ -36,15 +36,30 @@ class ClaimService:
         if claim.status not in [ClaimStatus.DRAFT, ClaimStatus.NEEDS_MORE_INFO]:
             raise ValueError(f"Cannot update claim in status {claim.status}. Only DRAFT or NEEDS_MORE_INFO claims can be updated.")
             
+        old_status = claim.status
         for key, value in update_data.items():
             if hasattr(claim, key) and value is not None:
                 setattr(claim, key, value)
                 
-        # If it was NEEDS_MORE_INFO, maybe switch back to DRAFT or keep it?
-        # For now, let's keep status as is, unless explicitly changed.
+        # If it was NEEDS_MORE_INFO, transition back to UNDER_AGENT_REVIEW
+        if old_status == ClaimStatus.NEEDS_MORE_INFO:
+            claim.status = ClaimStatus.UNDER_AGENT_REVIEW
+            # Reset metadata related to why it needed info
+            if claim.claim_metadata:
+                claim.claim_metadata.pop("interrupt_reason", None)
+                claim.claim_metadata.pop("interrupt_id", None)
         
         await self.db.commit()
         await self.db.refresh(claim)
+        
+        # If we transitioned to UNDER_AGENT_REVIEW, trigger agent processing
+        if claim.status == ClaimStatus.UNDER_AGENT_REVIEW:
+            # Process with agent (this handles the full validation flow)
+            # We don't await it here if we want it to be async, but for consistency with submit_claim:
+            await self.agent.process_claim(claim, self.db)
+            await self.db.commit()
+            await self.db.refresh(claim)
+            
         return claim
 
     async def submit_claim(self, claim_id: int) -> Claim:

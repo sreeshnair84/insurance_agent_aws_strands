@@ -323,8 +323,24 @@ export default function ChatPage() {
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                <div style={{ fontWeight: 500 }}>Claim #{claim.policy_number}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{claim.claim_type} • {claim.status}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ fontWeight: 500 }}>Claim #{claim.policy_number}</div>
+                                    <span style={{
+                                        fontSize: '0.65rem',
+                                        padding: '0.1rem 0.4rem',
+                                        borderRadius: '1rem',
+                                        background: claim.status === 'NEEDS_MORE_INFO' ? 'var(--status-warning-bg)' :
+                                            claim.status === 'APPROVED' ? 'var(--status-success-bg)' :
+                                                claim.status === 'REJECTED' ? 'var(--status-error-bg)' : 'var(--bg-input)',
+                                        color: claim.status === 'NEEDS_MORE_INFO' ? 'var(--status-warning-text)' :
+                                            claim.status === 'APPROVED' ? 'var(--status-success-text)' :
+                                                claim.status === 'REJECTED' ? 'var(--status-error-text)' : 'var(--text-muted)',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {claim.status === 'NEEDS_MORE_INFO' ? 'NEED INFO' : claim.status.replace('_', ' ')}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{claim.claim_type}</div>
                             </div>
                         ))}
                     </div>

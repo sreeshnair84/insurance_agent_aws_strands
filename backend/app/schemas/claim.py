@@ -24,3 +24,9 @@ class ClaimResponse(ClaimBase):
 
 class ClaimUpdate(BaseModel):
     description: Optional[str] = None
+
+class ClaimReviewRequest(BaseModel):
+    reason: Optional[str] = None
+
+class ClaimRequestInfoRequest(BaseModel):
+    requested_info: str

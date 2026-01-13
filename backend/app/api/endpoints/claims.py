@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import deps
 from app.models.user import User, UserRole
-from app.schemas.claim import ClaimCreate, ClaimResponse, ClaimUpdate
+from app.schemas.claim import ClaimCreate, ClaimResponse, ClaimUpdate, ClaimReviewRequest, ClaimRequestInfoRequest
 from app.services.claim_service import ClaimService
 from app.db.session import get_db
 
@@ -47,6 +47,25 @@ async def read_claim(
         
     return claim
 
+@router.put("/{claim_id}", response_model=ClaimResponse)
+async def update_claim(
+    claim_id: int,
+    claim_in: ClaimUpdate,
+    current_user: User = Depends(deps.get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    service = ClaimService(db)
+    claim = await service.get_claim(claim_id)
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    if claim.created_by_id != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    try:
+        return await service.update_claim(claim_id, claim_in.dict(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.post("/{claim_id}/submit", response_model=ClaimResponse)
 async def submit_claim(
     claim_id: int,
@@ -63,7 +82,7 @@ async def submit_claim(
 @router.put("/{claim_id}/approve", response_model=ClaimResponse)
 async def approve_claim(
     claim_id: int,
-    reason: str = None,
+    request: ClaimReviewRequest,
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -71,14 +90,14 @@ async def approve_claim(
         raise HTTPException(status_code=403, detail="Not authorized")
     service = ClaimService(db)
     try:
-        return await service.approve_claim(claim_id, current_user.id, reason)
+        return await service.approve_claim(claim_id, current_user.id, request.reason)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{claim_id}/reject", response_model=ClaimResponse)
 async def reject_claim(
     claim_id: int,
-    reason: str,
+    request: ClaimReviewRequest,
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -86,14 +105,14 @@ async def reject_claim(
         raise HTTPException(status_code=403, detail="Not authorized")
     service = ClaimService(db)
     try:
-        return await service.reject_claim(claim_id, current_user.id, reason)
+        return await service.reject_claim(claim_id, current_user.id, request.reason)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.put("/{claim_id}/request-info", response_model=ClaimResponse)
 async def request_more_info(
     claim_id: int,
-    requested_info: str,
+    request: ClaimRequestInfoRequest,
     current_user: User = Depends(deps.get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -102,7 +121,7 @@ async def request_more_info(
         raise HTTPException(status_code=403, detail="Not authorized")
     service = ClaimService(db)
     try:
-        return await service.request_more_info(claim_id, current_user.id, requested_info)
+        return await service.request_more_info(claim_id, current_user.id, request.requested_info)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
